@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Zabawa z Liczbami</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Comic Sans MS', cursive;
+      background: linear-gradient(to right, #e1f5fe, #fce4ec);
+      text-align: center;
+    }
+    .screen {
+      display: none;
+      padding: 40px 20px;
+    }
+    .active {
+      display: block;
+    }
+    h1 {
+      color: #0288d1;
+      font-size: 40px;
+    }
+    button {
+      font-size: 24px;
+      padding: 15px 30px;
+      margin: 10px;
+      border: none;
+      border-radius: 15px;
+      background-color: #4db6ac;
+      color: white;
+      cursor: pointer;
+      box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+    }
+    button:hover {
+      background-color: #00897b;
+    }
+    .number {
+      font-size: 100px;
+      color: #00C853;
+    }
+    .info {
+      font-size: 24px;
+      color: #ff9800;
+    }
+    input {
+      font-size: 26px;
+      padding: 10px;
+      width: 200px;
+      border: 3px solid #4CAF50;
+      border-radius: 10px;
+      margin: 20px auto;
+      text-align: center;
+    }
+    .timer {
+      font-size: 20px;
+      margin-top: 10px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Ekran główny -->
+<div class="screen active" id="screen-main">
+  <h1>🎮 Wybierz grę</h1>
+  <button onclick="showScreen('screen-difficulty')">🔢 Zgadywanie liczby</button>
+  <button onclick="startDisplayGame()">📢 Pokazuj i mów liczby</button>
+</div>
+
+<!-- Wybór poziomu -->
+<div class="screen" id="screen-difficulty">
+  <h1>🎚️ Wybierz poziom trudności</h1>
+  <button onclick="startGuessingGame(10)">😊 Łatwy (1-10)</button>
+  <button onclick="startGuessingGame(40)">😃 Średni (1-40)</button>
+  <button onclick="startGuessingGame(100)">🤯 Trudny (1-100)</button>
+</div>
+
+<!-- Gra 1: Zgadywanie -->
+<div class="screen" id="screen-guess">
+  <h1>Zgadnij liczbę!</h1>
+  <div class="number" id="guessNumber">?</div>
+  <div class="info" id="guessInfo">Posłuchaj liczby i wpisz ją</div>
+  <input type="text" id="guessInput" placeholder="Twoja liczba" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+</div>
+
+<!-- Gra 2: Losowe mówienie -->
+<div class="screen" id="screen-display">
+  <h1>Losowe liczby z mową</h1>
+  <div class="number" id="displayNumber">...</div>
+  <div class="timer" id="displayTimer">Czas: 00:00</div>
+</div>
+
+<script>
+  let currentNumber = null;
+  let upperLimit = 40;
+
+function speak(text) {
+  // Anuluj wszystko zanim zaczniemy nową mowę
+  window.speechSynthesis.cancel();
+
+  const say = () => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "pl-PL";
+    window.speechSynthesis.speak(u);
+  };
+
+  // Jeśli nadal coś mówi – poczekaj
+  if (window.speechSynthesis.speaking) {
+    setTimeout(() => speak(text), 100);
+  } else {
+    say();
+  }
+}
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // --- Gra 1: Zgadywanie ---
+  function startGuessingGame(limit) {
+    upperLimit = limit;
+    showScreen('screen-guess');
+    generateGuessNumber();
+  }
+
+  function generateGuessNumber() {
+    currentNumber = Math.floor(Math.random() * upperLimit) + 1;
+    document.getElementById("guessNumber").textContent = "?";
+    document.getElementById("guessInfo").textContent = "Posłuchaj liczby i wpisz ją";
+    speak(currentNumber);
+  }
+
+  document.getElementById("guessInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      const val = this.value.trim();
+      if (!val) {
+        document.getElementById("guessInfo").textContent = "Wpisz coś!";
+        return;
+      }
+
+      const guess = parseInt(val);
+      speak(guess.toString());
+
+      if (guess === currentNumber) {
+        document.getElementById("guessInfo").textContent = "🎉 Brawo!";
+        document.getElementById("guessNumber").textContent = currentNumber;
+        this.value = "";
+        setTimeout(generateGuessNumber, 2500);
+      } else {
+        document.getElementById("guessInfo").textContent = "Spróbuj ponownie!";
+        this.value = "";
+        setTimeout(() => {
+          speak("Źle, spróbuj ponownie");
+          speak(currentNumber.toString());
+        }, 600);
+      }
+    }
+  });
+
+  // --- Gra 2: Pokazuj i mów liczby ---
+  function startDisplayGame() {
+    showScreen('screen-display');
+    let startTime = Date.now();
+    let waitBefore = 2000;
+    let waitAfter = 3000;
+    let max = 10;
+    let changed = false;
+
+    function formatTime(ms) {
+      const sec = Math.floor(ms / 1000);
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function updateTimer() {
+      const now = Date.now();
+      const elapsed = now - startTime;
+      document.getElementById("displayTimer").textContent = "Czas: " + formatTime(elapsed);
+    }
+
+    function loop() {
+      updateTimer();
+
+      if (!changed && Date.now() - startTime >= 60000) {
+        waitBefore = 1000;
+        waitAfter = 1000;
+        max = 20;
+        changed = true;
+      }
+
+      const num = Math.floor(Math.random() * max) + 1;
+      document.getElementById("displayNumber").textContent = num;
+
+      setTimeout(() => {
+        speak(num.toString());
+        setTimeout(loop, waitAfter);
+      }, waitBefore);
+    }
+
+    setInterval(updateTimer, 1000);
+    loop();
+  }
+</script>
+
+</body>
+</html>
